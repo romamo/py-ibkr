@@ -1,6 +1,6 @@
 [project]
 name = "py-ibkr"
-version = "0.1.0"
+version = "0.1.1"
 description = "A modern, Pydantic-based parser for Interactive Brokers (IBKR) Flex Query reports"
 readme = "README.md"
 authors = [

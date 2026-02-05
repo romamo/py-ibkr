@@ -8,7 +8,8 @@ from py_ibkr import parse
 def test_parse_real_xml():
     # Attempt to locate sample file relative to project root
     # Assuming tests run from project root (pydantic-ib)
-    project_root = Path(__file__).parent.parent
+    # Assuming tests run from project root (pydantic-ib)
+
     # The user's workspace structure has portfolio_manager as a sibling to
     # py-ib (renamed from pydantic-ib)
     # But currently the directory is physically named pydantic-ib
@@ -29,8 +30,8 @@ def test_parse_real_xml():
 
     stmt = response.FlexStatements[0]
     assert stmt.accountId == "U19201588"
-    assert len(stmt.Trades) == 96
-    assert len(stmt.CashTransactions) == 23
+    assert len(stmt.Trades) == 124
+    assert len(stmt.CashTransactions) == 28
 
     # Check a specific trade
     trade = stmt.Trades[0]

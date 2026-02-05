@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime, time
 from decimal import Decimal
 
@@ -157,6 +159,17 @@ class CashTransaction(FlexModel):
     exDate: datetime | None = None
 
 
+class CashReportCurrency(FlexModel):
+    """Represents a line in the CashReport section (official tag: CashReportCurrency)."""
+    currency: str | None = None
+    endingCash: Decimal | None = None
+    toDate: date | None = None
+    accountId: str | None = None
+    acctAlias: str | None = None
+    model: str | None = None
+    reportDate: date | None = None
+
+
 class FlexStatement(FlexModel):
     accountId: str
     fromDate: date
@@ -165,7 +178,7 @@ class FlexStatement(FlexModel):
     whenGenerated: datetime
     Trades: list[Trade] = Field(default_factory=list)
     CashTransactions: list[CashTransaction] = Field(default_factory=list)
-    # Add other lists as needed
+    CashReport: list[CashReportCurrency] = Field(default_factory=list)
 
 
 class FlexQueryResponse(FlexModel):
