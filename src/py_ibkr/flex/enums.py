@@ -39,7 +39,10 @@ class Code(str, Enum):
     COMPLEX = "CP"  # Complex Position
     CANCEL = "Ca"  # Cancelled
     CORRECT = "Co"  # Corrected Trade
-    CROSSING = "Cx"  # Part or all of this transaction was a Crossing executed as dual agent by IB for two IB customers
+    CROSSING = (
+        "Cx"  # Part or all of this transaction was a Crossing executed as dual
+        # agent by IB for two IB customers
+    )
     DUAL = "D"  # IB acted as Dual Agent, UNIQUE TO TRADE CONFIRM REPORT
     ETF = "ETF"  # ETF Creation/Redemption
     EXPIRED = "Ep"  # Resulted from an Expired Position
@@ -71,7 +74,11 @@ class Code(str, Enum):
     FRACPRINCIPAL = "FP"  # IB acted as principal for the fractional share portion of this trade
     PRICEIMPROVEMENT = "PI"  # Price Improvement
     POSTACCRUAL = "Po"  # Interest or Dividend Accrual Posting
-    PRINCIPAL = "Pr"  # Part or all of this transaction was executed by the Exchange as a Crossing by IB against an IB affiliate and is therefore classified as a Principal and not an agency trade
+    PRINCIPAL = (
+        "Pr"  # Part or all of this transaction was executed by the Exchange as a
+        # Crossing by IB against an IB affiliate and is therefore classified as a
+        # Principal and not an agency trade
+    )
     REINVESTMENT = "R"  # Dividend Reinvestment
     REDEMPTION = "RED"  # Redemption to Investor
     REVERSE = "Re"  # Interest or Dividend Accrual Reversal
@@ -79,7 +86,10 @@ class Code(str, Enum):
     SOLICITEDIB = "SI"  # This order was solicited by Interactive Brokers
     SPECIFICLOT = "SL"  # Specific Lot tax lot-matching method
     SOLICITEDOTHER = "SO"  # This order was marked as solicited by your Introducing Broker
-    SHORTENEDSETTLEMENT = "SS"  # Customer designated this trade for shortened settlement and so is subject to execution at prices above the prevailing market
+    SHORTENEDSETTLEMENT = (
+        "SS"  # Customer designated this trade for shortened settlement and so is subject to
+        # execution at prices above the prevailing market
+    )
     STCG = "ST"  # Short-term P/L
     STOCKYIELD = "SY"  # Positions that may be eligible for Stock Yield.
     TRANSFER = "T"  # Transfer
@@ -140,7 +150,8 @@ class OrderType(str, Enum):
     STOPLIMIT = "STPLMT"
     MARKETONCLOSE = "MOC"
     LIMITONCLOSE = "LOC"
-    # MULTIPLE is not an actual IB order type. It is a catch-all value to use when an Order has an orderType like "LMT;MKT".
+    # MULTIPLE is not an actual IB order type. It is a catch-all value to use when
+    # an Order has an orderType like "LMT;MKT".
     # This way OrderType can remian a enum and not be a Tuple.
     MULTIPLE = "MULTIPLE"
     TRAILLMT = "TRAILLMT"

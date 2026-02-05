@@ -1,90 +1,19 @@
 import xml.etree.ElementTree as ET
-from datetime import date, datetime, time
-from decimal import Decimal
 from typing import Any
 
+from pydantic import BaseModel
+
 from .enums import Code
-from .models import CashTransaction, FlexQueryResponse, FlexStatement, Trade
+from .models import CashReportCurrency, CashTransaction, FlexQueryResponse, FlexStatement, Trade
 
 # IBKR Date/Time Formats
 # Dates: yyyyMMdd or yyyy-MM-dd
 # Times: HHmmss or HH:mm:ss
 # Datetime: date;time (semicolon separator)
+from .utils import parse_bool, parse_date, parse_datetime, parse_decimal, parse_time
 
 
-def parse_date(value: str) -> date | None:
-    if not value or value in ("0", "N/A", ""):
-        return None
-    try:
-        if len(value) == 8:
-            return datetime.strptime(value, "%Y%m%d").date()
-        elif "-" in value:
-            return datetime.strptime(value, "%Y-%m-%d").date()
-    except ValueError:
-        pass
-    return None
-
-
-def parse_time(value: str) -> time | None:
-    if not value or value in ("0", "N/A", ""):
-        return None
-    try:
-        if len(value) == 6:
-            return datetime.strptime(value, "%H%M%S").time()
-        elif ":" in value:
-            return datetime.strptime(value, "%H:%M:%S").time()
-    except ValueError:
-        pass
-    return None
-
-
-def parse_datetime(value: str) -> datetime | None:
-    if not value or value in ("0", "N/A", ""):
-        return None
-
-    # Handle semicolon separator
-    if ";" in value:
-        d_str, t_str = value.split(";")
-        d = parse_date(d_str)
-        t = parse_time(t_str)
-        if d and t:
-            return datetime.combine(d, t)
-    # Handle comma separator (legacy)
-    elif "," in value:
-        d_str, t_str = value.split(",")
-        d = parse_date(d_str)
-        t = parse_time(t_str.strip())
-        if d and t:
-            return datetime.combine(d, t)
-    # Handle single string format if applicable
-    elif len(value) == 8:  # Just date?
-        d = parse_date(value)
-        if d:
-            return datetime.combine(d, time.min)
-
-    return None
-
-
-def parse_bool(value: str) -> bool | None:
-    if not value:
-        return None
-    if value.upper() == "Y":
-        return True
-    if value.upper() == "N":
-        return False
-    return None
-
-
-def parse_decimal(value: str) -> Decimal | None:
-    if not value or value in ("N/A", ""):
-        return None
-    try:
-        return Decimal(value.replace(",", ""))
-    except Exception:
-        return None
-
-
-def clean_attributes(attrs: dict[str, str], model_class: type) -> dict[str, Any]:
+def clean_attributes(attrs: dict[str, str], model_class: type[BaseModel]) -> dict[str, Any]:
     """Convert string attributes to types expected by the model."""
     cleaned: dict[str, Any] = {}
 
@@ -175,6 +104,7 @@ def parse_flex_statement(elem: ET.Element) -> FlexStatement:
 
     trades = []
     cash_transactions = []
+    cash_reports = []
 
     # Parse Trades
     trades_container = elem.find("Trades")
@@ -188,11 +118,30 @@ def parse_flex_statement(elem: ET.Element) -> FlexStatement:
     if cash_container is not None:
         for cash_elem in cash_container.findall("CashTransaction"):
             cash_attrs = clean_attributes(cash_elem.attrib, CashTransaction)
-            # Handle special enum conversion if needed (e.g. types with spaces)
             # Pydantic should handle string to Enum if values match
             cash_transactions.append(CashTransaction(**cash_attrs))
 
+
+    # Parse CashReports (official tag: CashReportCurrency)
+    cash_report_container = elem.find("CashReport")
+    if cash_report_container is not None:
+        for cash_report_elem in cash_report_container.findall("CashReportCurrency"):
+            cash_report_attrs = clean_attributes(
+                cash_report_elem.attrib, CashReportCurrency
+            )
+            cash_reports.append(CashReportCurrency(**cash_report_attrs))
+        
+        # Backward compatibility / fallback for non-standard files
+        if not cash_reports:
+             for tag in ["CashReport", "CashReportInfo"]:
+                 for cash_report_elem in cash_report_container.findall(tag):
+                    cash_report_attrs = clean_attributes(
+                        cash_report_elem.attrib, CashReportCurrency
+                    )
+                    cash_reports.append(CashReportCurrency(**cash_report_attrs))
+
     attrs["Trades"] = trades
     attrs["CashTransactions"] = cash_transactions
+    attrs["CashReport"] = cash_reports
 
     return FlexStatement(**attrs)

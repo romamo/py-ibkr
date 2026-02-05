@@ -30,7 +30,8 @@ def main():
             if stmt.Trades:
                 last_trade = stmt.Trades[-1]
                 print(
-                    f"Last Trade: {last_trade.buySell.value} {last_trade.quantity} {last_trade.symbol} @ {last_trade.tradePrice}"
+                    f"Last Trade: {last_trade.buySell.value} {last_trade.quantity} "
+                    f"{last_trade.symbol} @ {last_trade.tradePrice}"
                 )
 
     except Exception as e:
