@@ -1,0 +1,54 @@
+[project]
+name = "py-ibkr"
+version = "0.1.0"
+description = "A modern, Pydantic-based parser for Interactive Brokers (IBKR) Flex Query reports"
+readme = "README.md"
+authors = [
+    { name = "Roman Medvedev", email = "pypi@romavm.dev" },
+]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+keywords = ["ibkr", "pydantic", "flex-query", "interactive-brokers", "finance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+    "types-python-dateutil",
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/romamo/py-ibkr"
+Repository = "https://github.com/romamo/py-ibkr"
+Issues = "https://github.com/romamo/py-ibkr/issues"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
