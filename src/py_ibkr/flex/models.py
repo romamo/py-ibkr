@@ -171,17 +171,17 @@ class CashReportCurrency(FlexModel):
 
 
 class FlexStatement(FlexModel):
-    accountId: str
-    fromDate: date
-    toDate: date
-    period: str
-    whenGenerated: datetime
+    accountId: str | None = None
+    fromDate: date | None = None
+    toDate: date | None = None
+    period: str | None = None
+    whenGenerated: datetime | None = None
     Trades: list[Trade] = Field(default_factory=list)
     CashTransactions: list[CashTransaction] = Field(default_factory=list)
     CashReport: list[CashReportCurrency] = Field(default_factory=list)
 
 
 class FlexQueryResponse(FlexModel):
-    queryName: str
-    type: str
+    queryName: str | None = None
+    type: str | None = None
     FlexStatements: list[FlexStatement] = Field(default_factory=list)
