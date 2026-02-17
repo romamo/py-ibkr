@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.2] - 2026-02-17
+
+### Fixed
+- CLI `download` command now defaults `to_date` to yesterday (instead of today) when only `from_date` is provided. This prevents "Statement not available" errors for current-day reports which are typically not ready.
+
 ## [0.1.1] - 2026-02-05
 
 ### Added
