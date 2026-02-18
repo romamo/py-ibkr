@@ -3,10 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 
-## [0.1.2] - 2026-02-17
+## [0.1.3] - 2026-02-18
 
 ### Fixed
-- CLI `download` command now defaults `to_date` to yesterday (instead of today) when only `from_date` is provided. This prevents "Statement not available" errors for current-day reports which are typically not ready.
+- Re-release with all intended files (client, CLI, tests) after previous partial publish attempt.
+
+## [0.1.2] - 2026-02-17 (Broken)
+- Partial release (failed due to missing files and PyPI reuse policy).
 
 ## [0.1.1] - 2026-02-05
 
