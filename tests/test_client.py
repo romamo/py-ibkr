@@ -1,9 +1,14 @@
-import io
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from py_ibkr import FlexAuthError, FlexClient, FlexError, FlexNotReadyError, FlexRateLimitError
+from py_ibkr import (
+    FlexAuthError,
+    FlexClient,
+    FlexInProgressError,
+    FlexNotReadyError,
+    FlexRateLimitError,
+)
 
 
 class TestFlexClient:
@@ -21,8 +26,8 @@ class TestFlexClient:
 
         client = FlexClient()
         code = client.send_request("token", "query_id")
-        assert code == "123456789"
-        
+        assert str(code) == "123456789"
+
         # Verify URL construction with dates
         client.send_request("token", "query_id", from_date="20230101", to_date="20230131")
         args, kwargs = mock_urlopen.call_args
@@ -97,23 +102,29 @@ class TestFlexClient:
     def test_download_with_retry(self, mock_sleep, mock_urlopen):
         # Step 1: SendRequest success
         mock_resp1 = MagicMock()
-        mock_resp1.read.return_value = b"<FlexStatementResponse><Status>Success</Status><ReferenceCode>123</ReferenceCode></FlexStatementResponse>"
+        mock_resp1.read.return_value = (
+            b"<FlexStatementResponse><Status>Success</Status>"
+            b"<ReferenceCode>123</ReferenceCode></FlexStatementResponse>"
+        )
         mock_resp1.__enter__.return_value = mock_resp1
-        
+
         # Step 2: GetStatement not ready then success
         mock_resp_not_ready = MagicMock()
-        mock_resp_not_ready.read.return_value = b"<FlexStatementResponse><Status>Warn</Status><ErrorCode>1003</ErrorCode></FlexStatementResponse>"
+        mock_resp_not_ready.read.return_value = (
+            b"<FlexStatementResponse><Status>Warn</Status>"
+            b"<ErrorCode>1003</ErrorCode></FlexStatementResponse>"
+        )
         mock_resp_not_ready.__enter__.return_value = mock_resp_not_ready
-        
+
         mock_resp_success = MagicMock()
         mock_resp_success.read.return_value = b"<FlexQueryResponse>data</FlexQueryResponse>"
         mock_resp_success.__enter__.return_value = mock_resp_success
-        
+
         mock_urlopen.side_effect = [mock_resp1, mock_resp_not_ready, mock_resp_success]
 
         client = FlexClient()
         data = client.download("token", "query_id", max_retries=2, retry_interval=0)
-        
+
         assert data == b"<FlexQueryResponse>data</FlexQueryResponse>"
         assert mock_urlopen.call_count == 3
         assert mock_sleep.call_count == 1
@@ -125,20 +136,40 @@ class TestFlexClient:
         # Second call to send_request returns success
         # Third call to get_statement returns data
         mock_urlopen.side_effect = [
-            MagicMock(__enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"""
+            MagicMock(
+                __enter__=MagicMock(
+                    return_value=MagicMock(
+                        read=MagicMock(
+                            return_value=b"""
                 <FlexStatusResponse>
                     <Status>Warn</Status>
                     <ErrorCode>1019</ErrorCode>
                     <ErrorMessage>Statement generation in progress</ErrorMessage>
                 </FlexStatusResponse>
-            """)))),
-            MagicMock(__enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"""
+            """
+                        )
+                    )
+                )
+            ),
+            MagicMock(
+                __enter__=MagicMock(
+                    return_value=MagicMock(
+                        read=MagicMock(
+                            return_value=b"""
                 <FlexStatusResponse>
                     <Status>Success</Status>
                     <ReferenceCode>12345</ReferenceCode>
                 </FlexStatusResponse>
-            """)))),
-            MagicMock(__enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"<xml>data</xml>")))),
+            """
+                        )
+                    )
+                )
+            ),
+            MagicMock(
+                __enter__=MagicMock(
+                    return_value=MagicMock(read=MagicMock(return_value=b"<xml>data</xml>"))
+                )
+            ),
         ]
 
         client = FlexClient()
@@ -147,3 +178,67 @@ class TestFlexClient:
         assert data == b"<xml>data</xml>"
         assert mock_urlopen.call_count == 3
         mock_sleep.assert_called_once_with(10)
+
+    @patch("py_ibkr.flex.client.urlopen")
+    def test_get_statement_in_progress(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = b"""
+        <FlexStatementResponse>
+            <Status>Warn</Status>
+            <ErrorCode>1019</ErrorCode>
+            <ErrorMessage>Statement generation in progress</ErrorMessage>
+        </FlexStatementResponse>
+        """
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        client = FlexClient()
+        with pytest.raises(FlexInProgressError, match="Statement generation in progress"):
+            client.get_statement("token", "12345")
+
+    @patch("py_ibkr.flex.client.urlopen")
+    @patch("time.sleep", return_value=None)
+    def test_download_exponential_backoff(self, mock_sleep, mock_urlopen):
+        # Step 1: SendRequest success
+        mock_resp1 = MagicMock()
+        mock_resp1.read.return_value = (
+            b"<FlexStatementResponse><Status>Success</Status>"
+            b"<ReferenceCode>123</ReferenceCode></FlexStatementResponse>"
+        )
+        mock_resp1.__enter__.return_value = mock_resp1
+
+        # Step 2: GetStatement in progress (1019) -> not ready (1003) -> success
+        mock_resp_1019 = MagicMock()
+        mock_resp_1019.read.return_value = (
+            b"<FlexStatementResponse><Status>Warn</Status>"
+            b"<ErrorCode>1019</ErrorCode></FlexStatementResponse>"
+        )
+        mock_resp_1019.__enter__.return_value = mock_resp_1019
+
+        mock_resp_1003 = MagicMock()
+        mock_resp_1003.read.return_value = (
+            b"<FlexStatementResponse><Status>Warn</Status>"
+            b"<ErrorCode>1003</ErrorCode></FlexStatementResponse>"
+        )
+        mock_resp_1003.__enter__.return_value = mock_resp_1003
+
+        mock_resp_success = MagicMock()
+        mock_resp_success.read.return_value = b"<xml>data</xml>"
+        mock_resp_success.__enter__.return_value = mock_resp_success
+
+        mock_urlopen.side_effect = [
+            mock_resp1,
+            mock_resp_1019,
+            mock_resp_1003,
+            mock_resp_success,
+        ]
+
+        client = FlexClient()
+        # Default retry_interval is 10
+        client.download("token", "query_id", max_retries=3)
+
+        assert mock_urlopen.call_count == 4
+        # Sleep calls should be 10*2^0 = 10, then 10*2^1 = 20
+        mock_sleep.assert_any_call(10)
+        mock_sleep.assert_any_call(20)
+        assert mock_sleep.call_count == 2

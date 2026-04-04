@@ -5,11 +5,12 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..vo import AccountID, ConID, CurrencyCode, Symbol
 from .enums import AssetClass, BuySell, CashAction, Code, OpenClose, OrderType, PutCall, TradeType
 
 
 class FlexModel(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    model_config = ConfigDict(populate_by_name=True, extra="ignore", validate_assignment=True)
 
 
 class Trade(FlexModel):
@@ -18,11 +19,12 @@ class Trade(FlexModel):
     buySell: BuySell | None = None
     orderType: OrderType | None = None
     assetCategory: AssetClass | None = None
-    accountId: str | None = None
-    currency: str | None = None
+    accountId: AccountID.Input | None = None
+    currency: CurrencyCode.Input | None = None
     fxRateToBase: Decimal | None = None
-    symbol: str | None = None
-    conid: str | None = None
+    symbol: Symbol.Input | None = None
+    conid: ConID.Input | None = None
+
     cusip: str | None = None
     isin: str | None = None
     figi: str | None = None
@@ -81,9 +83,9 @@ class Trade(FlexModel):
     securityIDType: str | None = None
     principalAdjustFactor: Decimal | None = None
     dateTime: datetime | None = None
-    underlyingConid: str | None = None
+    underlyingConid: ConID.Input | None = None
     underlyingSecurityID: str | None = None
-    underlyingSymbol: str | None = None
+    underlyingSymbol: Symbol.Input | None = None
     underlyingListingExchange: str | None = None
     issuer: str | None = None
     sedol: str | None = None
@@ -114,24 +116,24 @@ class CashTransaction(FlexModel):
     type: CashAction | None = None
     assetCategory: AssetClass | None = None
     subCategory: str | None = None
-    accountId: str | None = None
-    currency: str | None = None
+    accountId: AccountID.Input | None = None
+    currency: CurrencyCode.Input | None = None
     fxRateToBase: Decimal | None = None
     description: str | None = None
-    conid: str | None = None
+    conid: ConID.Input | None = None
     securityID: str | None = None
     cusip: str | None = None
     isin: str | None = None
     listingExchange: str | None = None
-    underlyingConid: str | None = None
+    underlyingConid: ConID.Input | None = None
     underlyingSecurityID: str | None = None
     underlyingListingExchange: str | None = None
     amount: Decimal | None = None
     dateTime: datetime | None = None
     sedol: str | None = None
-    symbol: str | None = None
+    symbol: Symbol.Input | None = None
     securityIDType: str | None = None
-    underlyingSymbol: str | None = None
+    underlyingSymbol: Symbol.Input | None = None
     issuer: str | None = None
     multiplier: Decimal | None = None
     strike: Decimal | None = None
@@ -161,17 +163,18 @@ class CashTransaction(FlexModel):
 
 class CashReportCurrency(FlexModel):
     """Represents a line in the CashReport section (official tag: CashReportCurrency)."""
-    currency: str | None = None
+
+    currency: CurrencyCode.Input | None = None
     endingCash: Decimal | None = None
     toDate: date | None = None
-    accountId: str | None = None
+    accountId: AccountID.Input | None = None
     acctAlias: str | None = None
     model: str | None = None
     reportDate: date | None = None
 
 
 class FlexStatement(FlexModel):
-    accountId: str | None = None
+    accountId: AccountID.Input | None = None
     fromDate: date | None = None
     toDate: date | None = None
     period: str | None = None

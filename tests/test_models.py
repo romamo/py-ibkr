@@ -15,7 +15,7 @@ def test_trade_model_instantiation():
     )
     assert trade.buySell == BuySell.BUY
     assert trade.quantity == Decimal("10")
-    assert trade.symbol == "AAPL"
+    assert str(trade.symbol) == "AAPL"
 
 
 def test_cash_transaction_model_instantiation():

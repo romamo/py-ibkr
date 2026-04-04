@@ -3,10 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.4] - 2026-02-28
+
+### Changed
+- Integrated Domain Value Objects for `AccountID`, `CurrencyCode`, `Symbol`, `ConID`, etc.
+- Implemented `VO.Input` pattern for better developer experience and strict typing.
+- Refactored parsing utilities to be "fail-fast" and remove error swallowing.
+- Updated `FlexClient` to use strictly typed domain identifiers.
+- restored full matrix testing (Python 3.10-3.14) in CI.
+- Updated dependencies: added `pydantic-extra-types` and `pycountry`.
+
 ## [0.1.3] - 2026-02-18
 
-### Fixed
-- Re-release with all intended files (client, CLI, tests) after previous partial publish attempt.
 
 ## [0.1.2] - 2026-02-17 (Broken)
 - Partial release (failed due to missing files and PyPI reuse policy).

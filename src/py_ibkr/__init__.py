@@ -3,6 +3,7 @@ from .flex import (
     FlexAuthError,
     FlexClient,
     FlexError,
+    FlexInProgressError,
     FlexNotReadyError,
     FlexQueryResponse,
     FlexRateLimitError,
@@ -22,4 +23,5 @@ __all__ = [
     "FlexAuthError",
     "FlexNotReadyError",
     "FlexRateLimitError",
+    "FlexInProgressError",
 ]

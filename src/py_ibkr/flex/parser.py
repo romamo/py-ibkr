@@ -121,20 +121,17 @@ def parse_flex_statement(elem: ET.Element) -> FlexStatement:
             # Pydantic should handle string to Enum if values match
             cash_transactions.append(CashTransaction(**cash_attrs))
 
-
     # Parse CashReports (official tag: CashReportCurrency)
     cash_report_container = elem.find("CashReport")
     if cash_report_container is not None:
         for cash_report_elem in cash_report_container.findall("CashReportCurrency"):
-            cash_report_attrs = clean_attributes(
-                cash_report_elem.attrib, CashReportCurrency
-            )
+            cash_report_attrs = clean_attributes(cash_report_elem.attrib, CashReportCurrency)
             cash_reports.append(CashReportCurrency(**cash_report_attrs))
-        
+
         # Backward compatibility / fallback for non-standard files
         if not cash_reports:
-             for tag in ["CashReport", "CashReportInfo"]:
-                 for cash_report_elem in cash_report_container.findall(tag):
+            for tag in ["CashReport", "CashReportInfo"]:
+                for cash_report_elem in cash_report_container.findall(tag):
                     cash_report_attrs = clean_attributes(
                         cash_report_elem.attrib, CashReportCurrency
                     )
