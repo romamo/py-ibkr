@@ -29,13 +29,13 @@ def test_parse_real_xml():
     assert len(response.FlexStatements) > 0
 
     stmt = response.FlexStatements[0]
-    assert stmt.accountId == "U19201588"
+    assert str(stmt.accountId) == "U19201588"
     assert len(stmt.Trades) == 124
     assert len(stmt.CashTransactions) == 28
 
     # Check a specific trade
     trade = stmt.Trades[0]
-    assert trade.symbol == "4GLD"
+    assert str(trade.symbol) == "4GLD"
     assert str(trade.tradeDate) == "2025-12-12"
 
     # Check a specific cash tx

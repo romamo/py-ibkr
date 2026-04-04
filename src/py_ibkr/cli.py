@@ -2,7 +2,6 @@ import argparse
 import os
 import sys
 from datetime import date, timedelta
-from typing import NoReturn
 
 from .flex.client import FlexClient, FlexError
 
@@ -56,12 +55,8 @@ def main() -> None:
     download_parser.add_argument(
         "--retry-interval", type=int, default=10, help="Seconds between retries (default: 10)"
     )
-    download_parser.add_argument(
-        "--from-date", help="Optional start date in YYYYMMDD format"
-    )
-    download_parser.add_argument(
-        "--to-date", help="Optional end date in YYYYMMDD format"
-    )
+    download_parser.add_argument("--from-date", help="Optional start date in YYYYMMDD format")
+    download_parser.add_argument("--to-date", help="Optional end date in YYYYMMDD format")
 
     args = parser.parse_args()
 
@@ -90,16 +85,16 @@ def handle_download(args: argparse.Namespace) -> None:
     try:
         from_date = format_date(args.from_date)
         to_date = format_date(args.to_date)
-        
+
         # IBKR requires both if either is provided
         if from_date and not to_date:
             to_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
-        
+
         msg = f"Requesting Flex Query {args.query_id}"
         if from_date or to_date:
             msg += f" ({from_date or ''} to {to_date or ''})"
         print(f"{msg}...", file=sys.stderr)
-        
+
         data = client.download(
             token=args.token,
             query_id=args.query_id,
