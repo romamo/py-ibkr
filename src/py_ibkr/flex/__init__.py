@@ -2,6 +2,7 @@ from .client import FlexAuthError as FlexAuthError
 from .client import FlexClient as FlexClient
 from .client import FlexError as FlexError
 from .client import FlexInProgressError as FlexInProgressError
+from .client import FlexLockoutError as FlexLockoutError
 from .client import FlexNotReadyError as FlexNotReadyError
 from .client import FlexRateLimitError as FlexRateLimitError
 from .models import CashTransaction as CashTransaction
@@ -17,6 +18,7 @@ __all__ = [
     "FlexNotReadyError",
     "FlexRateLimitError",
     "FlexInProgressError",
+    "FlexLockoutError",
     "FlexQueryResponse",
     "FlexStatement",
     "Trade",

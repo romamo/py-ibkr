@@ -1,7 +1,8 @@
 import argparse
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from typing import Literal
 
 from .flex.client import FlexClient, FlexError
 
@@ -50,10 +51,19 @@ def main() -> None:
         "--output", "-o", help="Output file path (prints to stdout if omitted)"
     )
     download_parser.add_argument(
-        "--max-retries", type=int, default=10, help="Maximum retries if report is not ready"
+        "--max-retries", type=int, default=20, help="Maximum retries if report is not ready"
     )
     download_parser.add_argument(
-        "--retry-interval", type=int, default=10, help="Seconds between retries (default: 10)"
+        "--retry-interval",
+        type=int,
+        default=60,
+        help="Base seconds between retries, grows exponentially (default: 60)",
+    )
+    download_parser.add_argument(
+        "--max-retry-interval",
+        type=int,
+        default=120,
+        help="Upper bound in seconds on the backoff wait (default: 120)",
     )
     download_parser.add_argument("--from-date", help="Optional start date in YYYYMMDD format")
     download_parser.add_argument("--to-date", help="Optional end date in YYYYMMDD format")
@@ -80,6 +90,34 @@ def format_date(date_str: str | None) -> str | None:
     return date_str
 
 
+def to_business_day(date_str: str, roll: Literal["back", "forward"]) -> str:
+    """Snap a YYYYMMDD date onto a weekday, since IBKR Flex rejects weekend dates.
+
+    ``roll="back"`` moves Sat/Sun to the prior Friday (use for a range end);
+    ``roll="forward"`` moves Sat/Sun to the next Monday (use for a range start).
+    """
+    day = datetime.strptime(date_str, "%Y%m%d").date()
+    weekday = day.weekday()  # Mon=0 .. Sun=6
+    if weekday < 5:
+        return date_str
+
+    if roll == "back":
+        adjusted = day - timedelta(days=weekday - 4)  # Sat->-1, Sun->-2 => Friday
+    elif roll == "forward":
+        adjusted = day + timedelta(days=7 - weekday)  # Sat->+2, Sun->+1 => Monday
+    else:
+        raise ValueError(f"Invalid roll direction: {roll!r} (expected 'back' or 'forward')")
+
+    result = adjusted.strftime("%Y%m%d")
+    print(
+        f"Note: {date_str} is a {day.strftime('%A')}; "
+        f"IBKR Flex accepts weekdays only, adjusted to {result} "
+        f"({adjusted.strftime('%A')}).",
+        file=sys.stderr,
+    )
+    return result
+
+
 def handle_download(args: argparse.Namespace) -> None:
     client = FlexClient()
     try:
@@ -89,6 +127,12 @@ def handle_download(args: argparse.Namespace) -> None:
         # IBKR requires both if either is provided
         if from_date and not to_date:
             to_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
+
+        # IBKR Flex rejects weekend dates: snap onto the enclosing weekdays.
+        if from_date:
+            from_date = to_business_day(from_date, roll="forward")
+        if to_date:
+            to_date = to_business_day(to_date, roll="back")
 
         msg = f"Requesting Flex Query {args.query_id}"
         if from_date or to_date:
@@ -100,6 +144,7 @@ def handle_download(args: argparse.Namespace) -> None:
             query_id=args.query_id,
             max_retries=args.max_retries,
             retry_interval=args.retry_interval,
+            max_retry_interval=args.max_retry_interval,
             from_date=from_date,
             to_date=to_date,
         )
