@@ -1,3 +1,5 @@
+import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -8,6 +10,13 @@ from urllib.request import Request, urlopen
 from ..vo import FlexQueryID, FlexToken, ReferenceCode
 
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
+
+
+def _redact(url: str) -> str:
+    """Mask the Flex token in a URL before logging it."""
+    return re.sub(r"(t=)[^&]+", r"\1***", url)
 
 
 class FlexError(Exception):
@@ -94,10 +103,13 @@ class FlexClient:
 
     def _get(self, url: str) -> bytes:
         """Internal helper for standard GET requests using urllib."""
+        logger.debug("GET %s", _redact(url))
         req = Request(url, headers={"User-Agent": self.user_agent})
         try:
             with urlopen(req) as response:
-                return response.read()
+                data = response.read()
+                logger.debug("Received %d bytes", len(data))
+                return data
         except HTTPError as e:
             raise FlexError(f"HTTP Error {e.code}: {e.reason}") from e
         except URLError as e:
@@ -135,16 +147,26 @@ class FlexClient:
             for i in range(max_retries - 1):
                 try:
                     return operation()
-                except retryable:
-                    time.sleep(min(retry_interval * (2**i), max_retry_interval))
+                except retryable as e:
+                    wait = min(retry_interval * (2**i), max_retry_interval)
+                    logger.info(
+                        "%s; retrying in %ds (attempt %d/%d)",
+                        e,
+                        wait,
+                        i + 1,
+                        max_retries,
+                    )
+                    time.sleep(wait)
             return operation()
 
         # Stage 1: Send Request (retry while another statement is generating, 1019)
+        logger.info("Requesting Flex Query %s", query_id)
         reference_code = poll(
             lambda: self.send_request(token, query_id, from_date=from_date, to_date=to_date),
             (FlexInProgressError,),
         )
         # Stage 2: Get Statement (retry while not ready, 1003, or generating, 1019)
+        logger.info("Fetching statement for reference code %s", reference_code)
         return poll(
             lambda: self.get_statement(token, reference_code),
             (FlexNotReadyError, FlexInProgressError),
