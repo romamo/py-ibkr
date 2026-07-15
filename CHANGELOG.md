@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.7] - 2026-07-15
+
+### Changed
+- `download` CLI caps `--to-date` at the previous day: IBKR has no finalized data for today or the future, so a to-date of today or later is snapped back to yesterday with a note on stderr.
+
 ## [0.1.6] - 2026-07-15
 
 ### Added

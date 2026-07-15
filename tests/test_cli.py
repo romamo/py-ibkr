@@ -168,6 +168,42 @@ def test_cli_download_from_date_only(mock_date, mock_client_class):
 
 
 @patch("py_ibkr.cli.FlexClient")
+@patch("py_ibkr.cli.date")
+def test_cli_download_caps_to_date_at_previous_day(mock_date, mock_client_class, capsys):
+    from datetime import date as real_date
+
+    # today = Wed 2026-07-15; a to-date of today must be capped to yesterday (Tue 07-14).
+    mock_date.today.return_value = real_date(2026, 7, 15)
+
+    mock_client = MagicMock()
+    mock_client.download.return_value = b"<xml>data</xml>"
+    mock_client_class.return_value = mock_client
+
+    with patch.object(
+        sys,
+        "argv",
+        [
+            "py-ibkr",
+            "download",
+            "-t",
+            "tok",
+            "-q",
+            "qid",
+            "--from-date",
+            "2026-07-01",
+            "--to-date",
+            "2026-07-15",
+        ],
+    ):
+        main()
+
+    _, kwargs = mock_client.download.call_args
+    assert kwargs["from_date"] == "20260701"
+    assert kwargs["to_date"] == "20260714"
+    assert "capping at 20260714" in capsys.readouterr().err
+
+
+@patch("py_ibkr.cli.FlexClient")
 def test_cli_download_with_iso_dates(mock_client_class, capsys):
     mock_client = MagicMock()
     mock_client.download.return_value = b"<xml>data</xml>"
