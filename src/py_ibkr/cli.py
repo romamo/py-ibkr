@@ -158,9 +158,21 @@ def handle_download(args: argparse.Namespace) -> None:
         from_date = format_date(args.from_date)
         to_date = format_date(args.to_date)
 
+        yesterday = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
+
         # IBKR requires both if either is provided
         if from_date and not to_date:
-            to_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
+            to_date = yesterday
+
+        # IBKR has no finalized data for today or the future: cap the end at the
+        # previous day. (YYYYMMDD strings compare correctly as fixed-width.)
+        if to_date and to_date > yesterday:
+            print(
+                f"Note: to-date {to_date} is today or later; "
+                f"IBKR data ends at the previous day, capping at {yesterday}.",
+                file=sys.stderr,
+            )
+            to_date = yesterday
 
         # IBKR Flex rejects weekend dates: snap onto the enclosing weekdays.
         if from_date:
