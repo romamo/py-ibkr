@@ -1,9 +1,19 @@
+import logging
 import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from py_ibkr.cli import main, to_business_day
+from py_ibkr.cli import main, setup_logging, to_business_day
+
+
+@pytest.mark.parametrize(
+    "verbosity,expected",
+    [(0, logging.WARNING), (1, logging.INFO), (2, logging.DEBUG), (3, logging.DEBUG)],
+)
+def test_setup_logging_levels(verbosity, expected):
+    setup_logging(verbosity)
+    assert logging.getLogger().level == expected
 
 
 def test_to_business_day_keeps_weekdays():

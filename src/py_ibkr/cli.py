@@ -1,10 +1,36 @@
 import argparse
+import logging
 import os
 import sys
 from datetime import date, datetime, timedelta
 from typing import Literal
 
 from .flex.client import FlexClient, FlexError
+
+
+def setup_logging(verbosity: int) -> None:
+    """Configure the root logger from a -v/-vv count.
+
+    0 (default) -> WARNING, 1 (-v) -> INFO, 2+ (-vv) -> DEBUG. The client is
+    stdlib-only (``urllib``), so there are no noisy third-party loggers to silence.
+    """
+    if verbosity >= 2:
+        level = logging.DEBUG
+        fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    elif verbosity == 1:
+        level = logging.INFO
+        fmt = "[%(levelname)s] %(message)s"
+    else:
+        level = logging.WARNING
+        fmt = "%(message)s"
+
+    logging.basicConfig(
+        level=level,
+        format=fmt,
+        datefmt="%Y-%m-%d %H:%M:%S",
+        stream=sys.stderr,
+        force=True,
+    )
 
 
 def load_dotenv(path: str = ".env") -> None:
@@ -30,6 +56,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="py-ibkr",
         description="CLI tool to download and manage IBKR Flex Queries",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="count",
+        default=0,
+        help="Increase verbosity (-v for INFO, -vv for DEBUG)",
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -69,6 +102,7 @@ def main() -> None:
     download_parser.add_argument("--to-date", help="Optional end date in YYYYMMDD format")
 
     args = parser.parse_args()
+    setup_logging(args.verbose)
 
     if args.command == "download":
         if not args.token:

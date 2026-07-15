@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.6] - 2026-07-15
+
+### Added
+- `download` CLI gains `-v`/`--verbose` (repeatable): `-v` enables INFO logging (request/fetch progress and retry notices), `-vv` enables DEBUG (per-request GET/byte-count traces).
+- `FlexClient` now emits structured logging via a module logger; the Flex token is redacted (`t=***`) from any logged URL.
+
 ## [0.1.5] - 2026-07-15
 
 ### Added

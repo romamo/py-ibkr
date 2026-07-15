@@ -10,6 +10,17 @@ from py_ibkr import (
     FlexNotReadyError,
     FlexRateLimitError,
 )
+from py_ibkr.flex.client import _redact
+
+
+def test_redact_masks_token():
+    url = "https://example.com/Flex?t=SECRET123&q=987&v=3"
+    redacted = _redact(url)
+    assert "SECRET123" not in redacted
+    assert "t=***" in redacted
+    # Other query params are left intact.
+    assert "q=987" in redacted
+    assert "v=3" in redacted
 
 
 class TestFlexClient:
