@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.1.5] - 2026-07-15
+
+### Added
+- `FlexLockoutError` for IBKR error 1025 ("too many failed attempts"); treated as terminal and never retried.
+- Configurable `--max-retry-interval` CLI option (default 120s) capping the polling backoff.
+- CLI snaps weekend `--from-date`/`--to-date` values onto weekdays (Sat/Sun -> Fri/Mon), since IBKR Flex rejects weekend dates with error 1003.
+
+### Changed
+- Hardened download polling for slow-to-generate statements: `max_retries` 10 -> 20, base `retry_interval` 10s -> 60s.
+- Refactored `FlexClient` internals: single error-code-to-exception mapping table and a unified `poll()` retry helper.
+- Added an sdist exclude list to keep internal files out of published artifacts.
+
 ## [0.1.4] - 2026-02-28
 
 ### Changed

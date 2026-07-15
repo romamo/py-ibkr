@@ -61,6 +61,15 @@ include = [
     "/README.md",
     "/LICENSE",
 ]
+exclude = [
+    "/CLAUDE.md",
+    "/.idea",
+    "/tmp",
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "**/.pytest_cache",
+    "**/.ruff_cache",
+]
 
 [build-system]
 requires = ["hatchling"]
