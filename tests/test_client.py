@@ -6,6 +6,7 @@ from py_ibkr import (
     FlexAuthError,
     FlexClient,
     FlexInProgressError,
+    FlexLockoutError,
     FlexNotReadyError,
     FlexRateLimitError,
 )
@@ -68,6 +69,43 @@ class TestFlexClient:
         client = FlexClient()
         with pytest.raises(FlexAuthError, match="Invalid token"):
             client.send_request("token", "query_id")
+
+    @patch("py_ibkr.flex.client.urlopen")
+    def test_send_request_lockout(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = b"""
+        <FlexStatementResponse>
+            <Status>Warn</Status>
+            <ErrorCode>1025</ErrorCode>
+            <ErrorMessage>Too many failed attempts</ErrorMessage>
+        </FlexStatementResponse>
+        """
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        client = FlexClient()
+        with pytest.raises(FlexLockoutError, match="Too many failed attempts"):
+            client.send_request("token", "query_id")
+
+    @patch("py_ibkr.flex.client.urlopen")
+    @patch("time.sleep", return_value=None)
+    def test_download_lockout_is_terminal(self, mock_sleep, mock_urlopen):
+        # A 1025 during Stage 1 must not be retried: fail fast, no sleeps.
+        mock_response = MagicMock()
+        mock_response.read.return_value = (
+            b"<FlexStatementResponse><Status>Warn</Status>"
+            b"<ErrorCode>1025</ErrorCode>"
+            b"<ErrorMessage>Too many failed attempts</ErrorMessage></FlexStatementResponse>"
+        )
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        client = FlexClient()
+        with pytest.raises(FlexLockoutError):
+            client.download("token", "query_id")
+
+        assert mock_urlopen.call_count == 1
+        mock_sleep.assert_not_called()
 
     @patch("py_ibkr.flex.client.urlopen")
     def test_get_statement_success(self, mock_urlopen):
@@ -177,7 +215,7 @@ class TestFlexClient:
 
         assert data == b"<xml>data</xml>"
         assert mock_urlopen.call_count == 3
-        mock_sleep.assert_called_once_with(10)
+        mock_sleep.assert_called_once_with(60)
 
     @patch("py_ibkr.flex.client.urlopen")
     def test_get_statement_in_progress(self, mock_urlopen):
@@ -234,11 +272,11 @@ class TestFlexClient:
         ]
 
         client = FlexClient()
-        # Default retry_interval is 10
+        # Default retry_interval is 60, backoff capped at max_retry_interval (120)
         client.download("token", "query_id", max_retries=3)
 
         assert mock_urlopen.call_count == 4
-        # Sleep calls should be 10*2^0 = 10, then 10*2^1 = 20
-        mock_sleep.assert_any_call(10)
-        mock_sleep.assert_any_call(20)
+        # Sleep calls should be 60*2^0 = 60, then min(60*2^1, 120) = 120
+        mock_sleep.assert_any_call(60)
+        mock_sleep.assert_any_call(120)
         assert mock_sleep.call_count == 2

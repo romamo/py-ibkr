@@ -1,9 +1,13 @@
 import time
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
+from typing import NoReturn, TypeVar
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ..vo import FlexQueryID, FlexToken, ReferenceCode
+
+T = TypeVar("T")
 
 
 class FlexError(Exception):
@@ -36,6 +40,44 @@ class FlexInProgressError(FlexError):
     pass
 
 
+class FlexLockoutError(FlexError):
+    """Raised when IBKR temporarily blocks the account after too many failed attempts (Error 1025).
+
+    This is a terminal error: it is NOT retried, since retrying deepens the lockout.
+    Wait several minutes (typically ~10) and verify the token/query configuration
+    before trying again.
+    """
+
+    pass
+
+
+# Maps an IBKR error code to (exception class, message template). The template's
+# {msg} is filled with IBKR's ErrorMessage. Unknown codes fall back to FlexError.
+_ERROR_EXCEPTIONS: dict[str, tuple[type[FlexError], str]] = {
+    "1003": (FlexNotReadyError, "Statement not ready: {msg}"),
+    "1008": (FlexRateLimitError, "IBKR Rate Limit Exceeded: {msg}"),
+    "1009": (FlexAuthError, "IBKR Authentication Error: {msg}"),
+    "1012": (FlexAuthError, "IBKR Authentication Error: {msg}"),
+    "1019": (FlexInProgressError, "Statement generation in progress: {msg}"),
+    "1025": (
+        FlexLockoutError,
+        "IBKR temporarily blocked after too many failed attempts: {msg}. "
+        "Wait several minutes and verify your token/query configuration before retrying.",
+    ),
+}
+
+
+def _raise_for_error(root: ET.Element) -> NoReturn:
+    """Raise the typed exception for the error described by a Flex response element."""
+    error_code = root.findtext("ErrorCode")
+    error_msg = root.findtext("ErrorMessage")
+    entry = _ERROR_EXCEPTIONS.get(error_code or "")
+    if entry is not None:
+        exc_class, template = entry
+        raise exc_class(template.format(msg=error_msg))
+    raise FlexError(f"Flex API Error {error_code}: {error_msg}")
+
+
 class FlexClient:
     """
     Official IBKR Flex Web Service API Client (Zero Dependencies).
@@ -47,7 +89,7 @@ class FlexClient:
 
     BASE_URL = "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService"
 
-    def __init__(self, user_agent: str = "python/py-ibkr"):
+    def __init__(self, user_agent: str = "python/py-ibkr v1.0.0"):
         self.user_agent = user_agent
 
     def _get(self, url: str) -> bytes:
@@ -65,8 +107,9 @@ class FlexClient:
         self,
         token: FlexToken.Input,
         query_id: FlexQueryID.Input,
-        max_retries: int = 10,
-        retry_interval: int = 10,
+        max_retries: int = 20,
+        retry_interval: int = 60,
+        max_retry_interval: int = 120,
         from_date: str | None = None,
         to_date: str | None = None,
     ) -> bytes:
@@ -77,38 +120,35 @@ class FlexClient:
             token: IBKR Flex Web Service Token.
             query_id: ID of the Flex Query template.
             max_retries: Maximum number of times to poll for the report if not ready.
-            retry_interval: Seconds to wait between retries.
+            retry_interval: Base seconds to wait between retries (grows exponentially).
+            max_retry_interval: Upper bound (seconds) on the exponential backoff wait.
             from_date: Optional start date in YYYYMMDD format.
             to_date: Optional end date in YYYYMMDD format.
 
         Returns:
             The raw XML content as bytes.
         """
-        reference_code: ReferenceCode
-        # Stage 1: Send Request (Retrying on 1019)
-        for i in range(max_retries):
-            try:
-                reference_code = self.send_request(
-                    token, query_id, from_date=from_date, to_date=to_date
-                )
-                break
-            except FlexInProgressError:
-                if i == max_retries - 1:
-                    raise
-                wait = min(retry_interval * (2**i), 60)
-                time.sleep(wait)
 
-        # Stage 2: Get Statement (Retrying on 1003 and 1019)
-        for i in range(max_retries):
-            try:
-                return self.get_statement(token, reference_code)
-            except (FlexNotReadyError, FlexInProgressError):
-                if i == max_retries - 1:
-                    raise
-                wait = min(retry_interval * (2**i), 60)
-                time.sleep(wait)
+        def poll(operation: Callable[[], T], retryable: tuple[type[FlexError], ...]) -> T:
+            # Retry the first max_retries-1 attempts; the final attempt runs
+            # unconditionally so its exception propagates.
+            for i in range(max_retries - 1):
+                try:
+                    return operation()
+                except retryable:
+                    time.sleep(min(retry_interval * (2**i), max_retry_interval))
+            return operation()
 
-        raise FlexNotReadyError("Maximum retries exceeded while waiting for report to be ready.")
+        # Stage 1: Send Request (retry while another statement is generating, 1019)
+        reference_code = poll(
+            lambda: self.send_request(token, query_id, from_date=from_date, to_date=to_date),
+            (FlexInProgressError,),
+        )
+        # Stage 2: Get Statement (retry while not ready, 1003, or generating, 1019)
+        return poll(
+            lambda: self.get_statement(token, reference_code),
+            (FlexNotReadyError, FlexInProgressError),
+        )
 
     def send_request(
         self,
@@ -139,17 +179,7 @@ class FlexClient:
                 raise FlexError("ReferenceCode missing in success response")
             return ReferenceCode(code)
 
-        error_code = root.findtext("ErrorCode")
-        error_msg = root.findtext("ErrorMessage")
-
-        if error_code == "1008":
-            raise FlexRateLimitError(f"IBKR Rate Limit Exceeded: {error_msg}")
-        if error_code in ("1009", "1012"):
-            raise FlexAuthError(f"IBKR Authentication Error: {error_msg}")
-        if error_code == "1019":
-            raise FlexInProgressError(f"Statement generation in progress: {error_msg}")
-
-        raise FlexError(f"Flex API Error {error_code}: {error_msg}")
+        _raise_for_error(root)
 
     def get_statement(self, token: FlexToken.Input, reference_code: ReferenceCode.Input) -> bytes:
         """
@@ -165,16 +195,6 @@ class FlexClient:
             root = ET.fromstring(stripped_content)
             status = root.findtext("Status")
             if status != "Success":
-                error_code = root.findtext("ErrorCode")
-                error_msg = root.findtext("ErrorMessage")
-
-                if error_code == "1003":
-                    raise FlexNotReadyError(f"Statement not ready: {error_msg}")
-                if error_code == "1008":
-                    raise FlexRateLimitError(f"IBKR Rate Limit Exceeded: {error_msg}")
-                if error_code == "1019":
-                    raise FlexInProgressError(f"Statement generation in progress: {error_msg}")
-
-                raise FlexError(f"Flex API Error {error_code}: {error_msg}")
+                _raise_for_error(root)
 
         return content
