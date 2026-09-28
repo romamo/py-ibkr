@@ -1,3 +1,6 @@
+import socket
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -5,10 +8,12 @@ import pytest
 from py_ibkr import (
     FlexAuthError,
     FlexClient,
+    FlexError,
     FlexInProgressError,
     FlexLockoutError,
     FlexNotReadyError,
     FlexRateLimitError,
+    FlexTimeoutError,
 )
 from py_ibkr.flex.client import _redact
 
@@ -291,3 +296,68 @@ class TestFlexClient:
         mock_sleep.assert_any_call(60)
         mock_sleep.assert_any_call(120)
         assert mock_sleep.call_count == 2
+
+
+class StalledServer:
+    """A local TCP server that accepts connections, optionally sends ``prefix``, then stalls.
+
+    Lets the timeout tests hit a real socket instead of a mocked ``urlopen``.
+    """
+
+    def __init__(self, prefix: bytes = b""):
+        self.prefix = prefix
+        self.release = threading.Event()
+        self.sock = socket.create_server(("127.0.0.1", 0))
+        self.port = self.sock.getsockname()[1]
+        self.thread = threading.Thread(target=self._serve, daemon=True)
+
+    def _serve(self) -> None:
+        conn, _ = self.sock.accept()
+        with conn:
+            conn.recv(65536)  # the request; never answered in full
+            conn.sendall(self.prefix)
+            self.release.wait()
+
+    def __enter__(self) -> "StalledServer":
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.release.set()
+        self.thread.join(timeout=5)
+        self.sock.close()
+
+
+class LocalFlexClient(FlexClient):
+    def __init__(self, port: int, timeout: float):
+        super().__init__(timeout=timeout)
+        self.BASE_URL = f"http://127.0.0.1:{port}/FlexWebService"
+
+
+def test_timeout_must_be_positive():
+    with pytest.raises(ValueError, match="timeout must be positive"):
+        FlexClient(timeout=0)
+
+
+def test_send_request_times_out_waiting_for_response():
+    with StalledServer() as server:
+        client = LocalFlexClient(server.port, timeout=0.5)
+        start = time.monotonic()
+        with pytest.raises(FlexTimeoutError, match=r"within 0\.5s"):
+            client.send_request("token", "query_id")
+        assert time.monotonic() - start < 5
+
+
+def test_get_statement_times_out_reading_body():
+    # Headers arrive and promise more body than is ever sent: the read stalls.
+    head = b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n<FlexQueryResponse>"
+    with StalledServer(prefix=head) as server:
+        client = LocalFlexClient(server.port, timeout=0.5)
+        start = time.monotonic()
+        with pytest.raises(FlexTimeoutError, match=r"within 0\.5s"):
+            client.get_statement("token", "123456789")
+        assert time.monotonic() - start < 5
+
+
+def test_timeout_error_is_a_flex_error():
+    assert issubclass(FlexTimeoutError, FlexError)
