@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -302,3 +303,25 @@ def test_load_dotenv(tmp_path):
 
     assert os.environ["IBKR_FLEX_TOKEN"] == "file-tok"
     assert os.environ["IBKR_FLEX_QUERY_ID"] == "file-qid"
+
+
+@pytest.mark.parametrize("value", ["0", "-5"])
+def test_cli_rejects_non_positive_timeout(value):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "py_ibkr.cli",
+            "download",
+            "-t",
+            "tok",
+            "-q",
+            "qid",
+            "--timeout",
+            value,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "--timeout: must be positive" in result.stderr
