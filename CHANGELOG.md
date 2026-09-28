@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.1.8] - 2026-09-28
 
 ### Fixed
 - `FlexClient` requests no longer hang forever when IBKR stalls: every request now has a timeout (`FlexClient(timeout=60.0)`, seconds per connect or read). A stall raises the new `FlexTimeoutError` (a `FlexError`); previously a read timeout escaped as a bare `TimeoutError`.
