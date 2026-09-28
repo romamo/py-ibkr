@@ -9,6 +9,7 @@ from .flex import (
     FlexQueryResponse,
     FlexRateLimitError,
     FlexStatement,
+    FlexTimeoutError,
     Trade,
     parse,
 )
@@ -26,4 +27,5 @@ __all__ = [
     "FlexRateLimitError",
     "FlexInProgressError",
     "FlexLockoutError",
+    "FlexTimeoutError",
 ]

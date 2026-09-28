@@ -60,6 +60,12 @@ class FlexLockoutError(FlexError):
     pass
 
 
+class FlexTimeoutError(FlexError):
+    """Raised when IBKR does not connect or respond within the client's timeout."""
+
+    pass
+
+
 # Maps an IBKR error code to (exception class, message template). The template's
 # {msg} is filled with IBKR's ErrorMessage. Unknown codes fall back to FlexError.
 _ERROR_EXCEPTIONS: dict[str, tuple[type[FlexError], str]] = {
@@ -98,22 +104,38 @@ class FlexClient:
 
     BASE_URL = "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService"
 
-    def __init__(self, user_agent: str = "python/py-ibkr v1.0.0"):
+    def __init__(self, user_agent: str = "python/py-ibkr v1.0.0", timeout: float = 60.0):
+        """
+        Args:
+            user_agent: User-Agent header sent with every request.
+            timeout: Seconds to wait for a connection or for each read from IBKR.
+        """
+        if timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {timeout!r}")
         self.user_agent = user_agent
+        self.timeout = timeout
 
     def _get(self, url: str) -> bytes:
         """Internal helper for standard GET requests using urllib."""
         logger.debug("GET %s", _redact(url))
         req = Request(url, headers={"User-Agent": self.user_agent})
         try:
-            with urlopen(req) as response:
+            with urlopen(req, timeout=self.timeout) as response:
                 data = response.read()
                 logger.debug("Received %d bytes", len(data))
                 return data
         except HTTPError as e:
             raise FlexError(f"HTTP Error {e.code}: {e.reason}") from e
         except URLError as e:
+            # A connect timeout arrives wrapped in URLError.
+            if isinstance(e.reason, TimeoutError):
+                raise FlexTimeoutError(
+                    f"IBKR did not connect within {self.timeout}s: {e.reason}"
+                ) from e
             raise FlexError(f"URL Error: {e.reason}") from e
+        except TimeoutError as e:
+            # A read timeout (waiting for the response or its body) is raised bare.
+            raise FlexTimeoutError(f"IBKR did not respond within {self.timeout}s: {e}") from e
 
     def download(
         self,

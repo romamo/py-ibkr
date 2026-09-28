@@ -51,6 +51,14 @@ def load_dotenv(path: str = ".env") -> None:
         pass
 
 
+def positive_float(value: str) -> float:
+    """argparse type for a strictly positive number of seconds."""
+    number = float(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError(f"must be positive, got {value}")
+    return number
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(
@@ -97,6 +105,12 @@ def main() -> None:
         type=int,
         default=120,
         help="Upper bound in seconds on the backoff wait (default: 120)",
+    )
+    download_parser.add_argument(
+        "--timeout",
+        type=positive_float,
+        default=60.0,
+        help="Seconds to wait for IBKR to connect or send data per request (default: 60)",
     )
     download_parser.add_argument("--from-date", help="Optional start date in YYYYMMDD format")
     download_parser.add_argument("--to-date", help="Optional end date in YYYYMMDD format")
@@ -153,7 +167,7 @@ def to_business_day(date_str: str, roll: Literal["back", "forward"]) -> str:
 
 
 def handle_download(args: argparse.Namespace) -> None:
-    client = FlexClient()
+    client = FlexClient(timeout=args.timeout)
     try:
         from_date = format_date(args.from_date)
         to_date = format_date(args.to_date)
