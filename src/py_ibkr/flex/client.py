@@ -11,6 +11,9 @@ from ..vo import FlexQueryID, FlexToken, ReferenceCode
 
 T = TypeVar("T")
 
+# (error, wait seconds, attempt, max_retries), called before each backoff wait.
+RetryCallback = Callable[["FlexError", int, int, int], None]
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,16 +107,25 @@ class FlexClient:
 
     BASE_URL = "https://ndcdyn.interactivebrokers.com/AccountManagement/FlexWebService"
 
-    def __init__(self, user_agent: str = "python/py-ibkr v1.0.0", timeout: float = 60.0):
+    def __init__(
+        self,
+        user_agent: str = "python/py-ibkr v1.0.0",
+        timeout: float = 60.0,
+        base_url: str = BASE_URL,
+    ):
         """
         Args:
             user_agent: User-Agent header sent with every request.
             timeout: Seconds to wait for a connection or for each read from IBKR.
+            base_url: Flex Web Service root; override for a proxy or a test server.
         """
         if timeout <= 0:
             raise ValueError(f"timeout must be positive, got {timeout!r}")
+        if not base_url.startswith(("https://", "http://")):
+            raise ValueError(f"base_url must be an http(s) URL, got {base_url!r}")
         self.user_agent = user_agent
         self.timeout = timeout
+        self.base_url = base_url.rstrip("/")
 
     def _get(self, url: str) -> bytes:
         """Internal helper for standard GET requests using urllib."""
@@ -146,6 +158,7 @@ class FlexClient:
         max_retry_interval: int = 120,
         from_date: str | None = None,
         to_date: str | None = None,
+        on_retry: RetryCallback | None = None,
     ) -> bytes:
         """
         Download a Flex Query report.
@@ -158,6 +171,8 @@ class FlexClient:
             max_retry_interval: Upper bound (seconds) on the exponential backoff wait.
             from_date: Optional start date in YYYYMMDD format.
             to_date: Optional end date in YYYYMMDD format.
+            on_retry: Called before each backoff wait with the error, the wait in
+                seconds, the attempt number, and max_retries.
 
         Returns:
             The raw XML content as bytes.
@@ -178,6 +193,8 @@ class FlexClient:
                         i + 1,
                         max_retries,
                     )
+                    if on_retry is not None:
+                        on_retry(e, wait, i + 1, max_retries)
                     time.sleep(wait)
             return operation()
 
@@ -206,7 +223,7 @@ class FlexClient:
 
         Returns the reference code for the generated report.
         """
-        url = f"{self.BASE_URL}/SendRequest?t={token}&q={query_id}&v=3"
+        url = f"{self.base_url}/SendRequest?t={token}&q={query_id}&v=3"
         if from_date:
             url += f"&fd={from_date}"
         if to_date:
@@ -229,7 +246,7 @@ class FlexClient:
         """
         Step 2: Retrieve the generated Flex Query statement.
         """
-        url = f"{self.BASE_URL}/GetStatement?t={token}&q={reference_code}&v=3"
+        url = f"{self.base_url}/GetStatement?t={token}&q={reference_code}&v=3"
 
         content = self._get(url)
 
