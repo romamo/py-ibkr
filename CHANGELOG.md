@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.2.0] - 2026-09-29
 
 ### Changed
 - **Breaking:** requires Python 3.14+ (the floor of treaty, which the CLI now uses).
