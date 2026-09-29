@@ -18,23 +18,25 @@ pip install py-ibkr
 
 ## Command Line Interface
 
-`py-ibkr` includes a zero-dependency CLI for downloading Flex Queries.
+`py-ibkr` includes a CLI for downloading Flex Queries, built on
+[treaty](https://github.com/romamo/treaty) so scripts and AI agents get a stable contract.
 
 ```bash
-# Download to a file
-py-ibkr download --token YOUR_TOKEN --query-id YOUR_QUERY_ID --output report.xml
+export PY_IBKR_TOKEN=your_token        # or --token-from-file PATH / --token-from-env VAR
+export PY_IBKR_QUERY_ID=your_query_id  # or -q / --query-id, or query_id in .py-ibkr.toml
 
-# Download with date range overrides (ISO format YYYY-MM-DD supported)
-py-ibkr download -t YOUR_TOKEN -q YOUR_QUERY_ID --from-date 2023-01-01 --to-date 2023-01-31
-
-# Alternatively, use a .env file (automatically loaded if present):
-# IBKR_FLEX_TOKEN=your_token
-# IBKR_FLEX_QUERY_ID=your_query_id
+# Download the query's default period
 py-ibkr download -o report.xml
 
-# Download to stdout (pipe to other tools)
-py-ibkr download | xmllint --format -
+# Download a date range (YYYY-MM-DD or YYYYMMDD)
+py-ibkr download -o jan.xml --from-date 2026-01-01 --to-date 2026-01-31
 ```
+
+- **Output**: the report is written to `-o/--output`; stdout carries a JSON envelope (plain text at a terminal) with the path, size, and the date range actually requested. `--format id` prints only the path
+- **Dates**: IBKR accepts weekdays only and has no data for today, so weekend ends move inward and a to-date of today or later is capped at yesterday, each with a warning in the envelope
+- **Secrets**: the token is never accepted on the command line and is redacted from all output
+- **Exit codes**: `2` invalid arguments (nothing was sent), `4` missing query ID or output directory, `10` IBKR stopped responding (`--request-timeout`), `11` rate limited, `79` token or query rejected, `80` locked out after failed attempts, `81` report still generating after `--max-retries`, `82` other IBKR errors
+- **Discovery**: `py-ibkr manifest` and `py-ibkr download --schema` describe every flag, output field, and exit code; `-v`/`--verbose` becomes `--verbose`, `-vv` becomes `--debug`
 
 ## Setup: Obtaining your Token and Query ID
 

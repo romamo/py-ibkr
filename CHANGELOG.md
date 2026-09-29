@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+
+### Changed
+- **Breaking:** requires Python 3.14+ (the floor of treaty, which the CLI now uses).
+- **Breaking:** the `py-ibkr` CLI is rebuilt on [treaty](https://github.com/romamo/treaty):
+  - stdout is a JSON envelope (plain text at a terminal) with `path`, `bytes`, `query_id`, and the dates actually requested; the XML is written only to `-o/--output`, which is now required (no more XML on stdout)
+  - the token comes from `PY_IBKR_TOKEN`, `--token-from-env VAR`, or `--token-from-file PATH`; `--token`/`-t VALUE` on the command line is refused
+  - the query ID comes from `-q/--query-id`, `PY_IBKR_QUERY_ID`, or `query_id` in `.py-ibkr.toml`
+  - `IBKR_FLEX_TOKEN` / `IBKR_FLEX_QUERY_ID` and the automatic `.env` loading are gone
+  - typed exit codes: 2 invalid arguments, 4 missing query ID or output directory, 10 IBKR stopped responding, 11 rate limited, 79 token or query rejected, 80 locked out, 81 report not ready after polling, 82 other IBKR errors
+  - weekend and future-date adjustments are envelope warnings (`WEEKEND_ADJUSTED`, `TO_DATE_CAPPED`); a range with no weekday before today, or `--to-date` without `--from-date`, now fails validation
+  - `-v`/`-vv` become `--verbose`/`--debug`; `--timeout` (per request) is renamed `--request-timeout`, since `--timeout` is treaty's whole-run limit
+  - the report file is written atomically (a failed run leaves no partial file) and owner-only (`0600`), since it holds account data
+
+### Added
+- `FlexClient(base_url=...)` to target a proxy or test server.
+- `FlexClient.download(on_retry=...)`, called before each backoff wait.
+
 ## [0.1.8] - 2026-09-28
 
 ### Fixed

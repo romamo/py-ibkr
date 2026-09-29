@@ -7,17 +7,13 @@ authors = [
     { name = "Roman Medvedev", email = "pypi@romavm.dev" },
 ]
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 keywords = ["ibkr", "pydantic", "flex-query", "interactive-brokers", "finance"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Office/Business :: Financial :: Investment",
@@ -27,6 +23,7 @@ dependencies = [
     "pycountry>=26.2.16",
     "pydantic>=2.0",
     "pydantic-extra-types>=2.11.0",
+    "treaty>=1.0.0rc2",
 ]
 
 [project.scripts]
@@ -47,11 +44,14 @@ Issues = "https://github.com/romamo/py-ibkr/issues"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = []
+# Surfaced by the 3.14 target; both change library behaviour, so they wait for their own
+# change: UP042 (str+Enum -> StrEnum alters str() of enum members) and UP040 (the `type`
+# keyword would replace the TYPE_CHECKING `.Input` aliases in vo.py).
+ignore = ["UP040", "UP042"]
 
 [tool.hatch.build.targets.sdist]
 include = [

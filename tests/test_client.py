@@ -318,7 +318,7 @@ class StalledServer:
             conn.sendall(self.prefix)
             self.release.wait()
 
-    def __enter__(self) -> "StalledServer":
+    def __enter__(self) -> StalledServer:
         self.thread.start()
         return self
 
@@ -328,10 +328,8 @@ class StalledServer:
         self.sock.close()
 
 
-class LocalFlexClient(FlexClient):
-    def __init__(self, port: int, timeout: float):
-        super().__init__(timeout=timeout)
-        self.BASE_URL = f"http://127.0.0.1:{port}/FlexWebService"
+def LocalFlexClient(port: int, timeout: float) -> FlexClient:
+    return FlexClient(timeout=timeout, base_url=f"http://127.0.0.1:{port}/FlexWebService")
 
 
 def test_timeout_must_be_positive():
@@ -361,3 +359,27 @@ def test_get_statement_times_out_reading_body():
 
 def test_timeout_error_is_a_flex_error():
     assert issubclass(FlexTimeoutError, FlexError)
+
+
+def test_base_url_must_be_http():
+    with pytest.raises(ValueError, match="base_url must be an http"):
+        FlexClient(base_url="ftp://example.com")
+
+
+@patch("time.sleep")
+@patch("py_ibkr.flex.client.urlopen")
+def test_download_calls_on_retry(mock_urlopen, mock_sleep):
+    not_ready = MagicMock()
+    not_ready.read.return_value = (
+        b"<FlexStatementResponse><Status>Warn</Status>"
+        b"<ErrorCode>1019</ErrorCode></FlexStatementResponse>"
+    )
+    not_ready.__enter__.return_value = not_ready
+    mock_urlopen.return_value = not_ready
+
+    calls = []
+    with pytest.raises(FlexInProgressError):
+        FlexClient().download(
+            "token", "query_id", max_retries=3, on_retry=lambda *a: calls.append(a[1:])
+        )
+    assert calls == [(60, 1, 3), (120, 2, 3)]

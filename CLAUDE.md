@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`py-ibkr` is a Pydantic-based parser and downloader for Interactive Brokers (IBKR) Flex Query XML reports. It replaces the legacy `ibflex` library with strict Pydantic v2 models and fail-fast parsing. Published to PyPI; supports Python 3.10-3.14.
+`py-ibkr` is a Pydantic-based parser and downloader for Interactive Brokers (IBKR) Flex Query XML reports. It replaces the legacy `ibflex` library with strict Pydantic v2 models and fail-fast parsing. Published to PyPI; requires Python 3.14+ (treaty's floor).
 
 ## Commands
 
@@ -33,7 +33,7 @@ Package root is `src/py_ibkr/` with the `flex/` subpackage holding all IBKR-spec
 
 **Download protocol** (`FlexClient`): `send_request` (Stage 1) returns a `ReferenceCode`; `get_statement` (Stage 2) fetches the report. `download()` orchestrates both with exponential backoff. IBKR error codes map to typed exceptions: `FlexRateLimitError` (1008), `FlexAuthError` (1009/1012), `FlexNotReadyError` (1003), `FlexInProgressError` (1019), all subclassing `FlexError`.
 
-**CLI** (`cli.py`, entry point `py-ibkr`): thin wrapper over `FlexClient` for the `download` subcommand. Includes a minimal zero-dep `.env` loader; reads `IBKR_FLEX_TOKEN` / `IBKR_FLEX_QUERY_ID` as fallbacks. Note: the CLI/client wire protocol uses IBKR's `YYYYMMDD` date format; `format_date` converts ISO input.
+**CLI** (`cli.py`, entry point `py-ibkr`): a [treaty](https://github.com/romamo/treaty) app with one `download` command over `FlexClient`. stdout is a JSON envelope (plain at a terminal); the XML goes to `-o`. The token is a treaty secret (`PY_IBKR_TOKEN`, `--token-from-file`, `--token-from-env`, never argv); `query_id` and `base_url` are treaty `Settings` (`PY_IBKR_<FIELD>` or `.py-ibkr.toml`). There is no `.env` loading. `resolve_range` fits dates to IBKR (weekdays only, data ends yesterday) and runs in `DownloadArgs.__post_init__`, so bad ranges exit 2 before any request. `FlexError` subclasses map to exit codes: `RATE_LIMITED` 11, `TIMEOUT` 10, and app codes 79-82 declared with `app.exit_code`. `uv run treaty audit py_ibkr.cli:app` checks the declarations. Tests drive `app.run(argv, env=...)` against a local fake IBKR server via `PY_IBKR_BASE_URL`.
 
 ## Conventions specific to this codebase
 
