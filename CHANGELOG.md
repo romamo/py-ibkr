@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+
+### Changed
+- Requires treaty 1.0.0rc4 or later.
+- An invalid `query_id` setting (`PY_IBKR_QUERY_ID` or `.py-ibkr.toml`) is a `CONFIG_INVALID` validation error (exit 2, naming the key and source) before any request, instead of exit 4.
+- `--verbose` retry notices come from the client's own log line: treaty now shows library INFO logs, so the CLI no longer adds a duplicate progress line per retry.
+- Command examples pass `--token-from-env PY_IBKR_TOKEN`, so they validate as written.
+
 ## [0.2.0] - 2026-09-29
 
 ### Changed

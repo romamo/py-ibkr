@@ -32,8 +32,7 @@ from .vo import FlexQueryID, FlexToken
 class Settings:
     """Read from ``PY_IBKR_<FIELD>``, then ``./.py-ibkr.toml``, then the user config."""
 
-    # Plain str: settings are inspected before app.scalar() can register FlexQueryID.
-    query_id: str | None = None
+    query_id: FlexQueryID | None = None
     base_url: str = FlexClient.BASE_URL
 
 
@@ -230,21 +229,6 @@ def render_downloaded(data: dict[str, Any]) -> str:
     return f"Saved {data['bytes']} bytes to {data['path']}{period}\n"
 
 
-def setting_query_id(settings: Settings) -> FlexQueryID:
-    """The query_id setting, which the handler checks since settings skip scalars."""
-    if settings.query_id is None:
-        raise Exit.PRECONDITION(
-            "No Flex Query ID",
-            suggestion="pass --query-id or set PY_IBKR_QUERY_ID",
-        )
-    if not settings.query_id.isdigit():
-        raise Exit.PRECONDITION(
-            f"The query_id setting must be digits, got {settings.query_id!r}",
-            suggestion="fix PY_IBKR_QUERY_ID or query_id in .py-ibkr.toml",
-        )
-    return FlexQueryID(settings.query_id)
-
-
 def write_atomic(path: Path, data: bytes) -> None:
     """Write via a temp file in the same directory, so a failure leaves no partial file.
 
@@ -278,10 +262,14 @@ def write_atomic(path: Path, data: bytes) -> None:
     timeout=None,
     heartbeat=True,
     examples=[
-        ("Download the query's default period", "py-ibkr download -o report.xml"),
+        (
+            "Download the query's default period",
+            "py-ibkr download -o report.xml --token-from-env PY_IBKR_TOKEN",
+        ),
         (
             "Download January 2026",
-            "py-ibkr download -o jan.xml --from-date 2026-01-01 --to-date 2026-01-31",
+            "py-ibkr download -o jan.xml --from-date 2026-01-01 --to-date 2026-01-31"
+            " --token-from-env PY_IBKR_TOKEN",
         ),
         (
             "Read the token from a file",
@@ -292,7 +280,12 @@ def write_atomic(path: Path, data: bytes) -> None:
     id_field="path",
 )
 def download(args: DownloadArgs, ctx: Ctx, settings: Settings) -> Downloaded:
-    query_id = args.query_id if args.query_id is not None else setting_query_id(settings)
+    query_id = args.query_id if args.query_id is not None else settings.query_id
+    if query_id is None:
+        raise Exit.PRECONDITION(
+            "No Flex Query ID",
+            suggestion="pass --query-id or set PY_IBKR_QUERY_ID",
+        )
     if not args.output.parent.is_dir():
         raise Exit.PRECONDITION(
             f"Output directory {args.output.parent} does not exist",
@@ -304,9 +297,6 @@ def download(args: DownloadArgs, ctx: Ctx, settings: Settings) -> Downloaded:
         ctx.warn(
             a.code, a.message, original=a.original.isoformat(), adjusted=a.adjusted.isoformat()
         )
-
-    def on_retry(error: FlexError, wait: int, attempt: int, max_retries: int) -> None:
-        ctx.progress(f"{error}; retrying in {wait}s", done=attempt, total=max_retries)
 
     ctx.log(
         "Requesting Flex Query",
@@ -324,7 +314,6 @@ def download(args: DownloadArgs, ctx: Ctx, settings: Settings) -> Downloaded:
             max_retry_interval=args.max_retry_interval,
             from_date=None if from_date is None else f"{from_date:%Y%m%d}",
             to_date=None if to_date is None else f"{to_date:%Y%m%d}",
-            on_retry=on_retry,
         )
     except FlexRateLimitError as e:
         raise Exit.RATE_LIMITED(
