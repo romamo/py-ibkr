@@ -23,7 +23,7 @@ dependencies = [
     "pycountry>=26.2.16",
     "pydantic>=2.0",
     "pydantic-extra-types>=2.11.0",
-    "treaty>=1.0.0rc2",
+    "treaty>=1.0.0rc4",
 ]
 
 [project.scripts]

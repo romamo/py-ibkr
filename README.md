@@ -35,7 +35,7 @@ py-ibkr download -o jan.xml --from-date 2026-01-01 --to-date 2026-01-31
 - **Output**: the report is written to `-o/--output`; stdout carries a JSON envelope (plain text at a terminal) with the path, size, and the date range actually requested. `--format id` prints only the path
 - **Dates**: IBKR accepts weekdays only and has no data for today, so weekend ends move inward and a to-date of today or later is capped at yesterday, each with a warning in the envelope
 - **Secrets**: the token is never accepted on the command line and is redacted from all output
-- **Exit codes**: `2` invalid arguments (nothing was sent), `4` missing query ID or output directory, `10` IBKR stopped responding (`--request-timeout`), `11` rate limited, `79` token or query rejected, `80` locked out after failed attempts, `81` report still generating after `--max-retries`, `82` other IBKR errors
+- **Exit codes**: `2` invalid arguments or settings (nothing was sent), `4` missing query ID or output directory, `10` IBKR stopped responding (`--request-timeout`), `11` rate limited, `79` token or query rejected, `80` locked out after failed attempts, `81` report still generating after `--max-retries`, `82` other IBKR errors
 - **Discovery**: `py-ibkr manifest` and `py-ibkr download --schema` describe every flag, output field, and exit code; `-v`/`--verbose` becomes `--verbose`, `-vv` becomes `--debug`
 
 ## Setup: Obtaining your Token and Query ID
