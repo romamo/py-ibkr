@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [0.2.1] - 2026-09-30
 
 ### Changed
 - Requires treaty 1.0.0rc4 or later.
