@@ -249,10 +249,15 @@ def test_missing_query_id_is_a_precondition(tmp_path, env, ibkr):
     assert requests == []
 
 
-def test_bad_query_id_setting_is_a_precondition(tmp_path, env):
+def test_bad_query_id_setting_is_a_config_error(tmp_path, env, ibkr):
+    _, requests = ibkr
     argv = ["download", "-o", str(tmp_path / "r.xml")]
-    code, _, _ = run(argv, {**env, "PY_IBKR_QUERY_ID": "abc"})
-    assert code == 4
+    code, out, _ = run(argv, {**env, "PY_IBKR_QUERY_ID": "abc"})
+    assert code == 2
+    error = envelope(out)["error"]
+    assert (error["code"], error["phase"]) == ("CONFIG_INVALID", "validation")
+    assert error["context"] == {"key": "query_id", "source": "PY_IBKR_QUERY_ID"}
+    assert requests == []
 
 
 def test_missing_output_directory_is_a_precondition(tmp_path, env, ibkr):
