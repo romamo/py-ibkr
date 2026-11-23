@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.2.2] - 2026-11-23
+
+### Changed
+- The integration test reads its sample Flex statement from `PY_IBKR_SAMPLE_XML` and skips without it.
+
 ## [0.2.1] - 2026-09-30
 
 ### Changed
